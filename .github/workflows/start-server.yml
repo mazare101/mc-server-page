@@ -1,0 +1,13 @@
+name: Start Minecraft Server
+on:
+  repository_dispatch:
+    types: [start-server]
+  workflow_dispatch:
+
+jobs:
+  start:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start server if not running
+        run: bash ./start-server.sh
