@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-python3 /home/mazare/VScodium/mc-server-panel/start_server.py
+echo "E2E test: workflow reached the self-hosted runner OK"
