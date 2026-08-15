@@ -17,86 +17,54 @@
   #status {
     border-radius: 8px; padding: .75rem 1rem; margin-bottom: 1rem;
     background: #171d2e; border: 1px solid #262e44; font-size: .95rem;
+    min-height: 2.9rem;
   }
   #status.ok { border-color: #2f7d4f; color: #7fe0a5; }
   #status.err { border-color: #7d2f2f; color: #f0a0a0; }
-  button {
+  #start {
     width: 100%; padding: .85rem; font-size: 1.05rem; font-weight: 600;
     border: 0; border-radius: 8px; cursor: pointer;
     background: #3b82f6; color: #fff; transition: filter .15s;
   }
-  button:hover { filter: brightness(1.1); }
-  button:disabled { opacity: .55; cursor: default; }
-  details { margin-top: 1.5rem; color: #8b93a7; font-size: .85rem; }
-  details summary { cursor: pointer; }
-  details label { display: block; margin-top: .5rem; }
-  details input {
+  #start:hover { filter: brightness(1.1); }
+  #start:disabled { opacity: .55; cursor: default; }
+  label { display: block; margin-top: 1rem; color: #8b93a7; font-size: .85rem; }
+  input {
     width: 100%; margin-top: .25rem; padding: .4rem .5rem;
     background: #171d2e; color: #e6e9f0; border: 1px solid #262e44;
     border-radius: 6px; font-family: monospace;
   }
-  details .row { display: flex; align-items: center; gap: .5rem; margin-top: .5rem; }
-  details .row input { width: auto; }
-  details button {
-    width: auto; padding: .4rem .8rem; font-size: .85rem; font-weight: 500;
-    background: #232b45; margin-top: .75rem;
-  }
+  .hint { color: #8b93a7; font-size: .8rem; margin-top: 1rem; line-height: 1.4; }
+  code { color: #a5b4fc; }
 </style>
 </head>
 <body>
 <main>
   <h1>Minecraft Server</h1>
   <p class="sub">Starts the server on your machine if it isn&rsquo;t already running.</p>
-  <div id="status">Idle.</div>
-  <button id="start" disabled>Start Server</button>
-  <details>
-    <summary>Settings</summary>
-    <label>GitHub owner
-      <input id="owner" placeholder="your-github-username" autocomplete="off">
-    </label>
-    <label>Repository
-      <input id="repo" placeholder="mc-server-page" autocomplete="off">
-    </label>
-    <label>Fine-grained token (Actions: read &amp; write, this repo only)
-      <input id="token" type="password" placeholder="github_pat_..." autocomplete="off">
-    </label>
-    <label class="row"><input id="remember" type="checkbox"> Remember on this device</label>
-    <button id="save">Save settings</button>
-  </details>
+  <div id="status">Press Start to turn on the server.</div>
+  <button id="start">Start Server</button>
+  <label for="token">GitHub token (Actions read &amp; write on this repo only)</label>
+  <input id="token" type="password" placeholder="github_pat_..." autocomplete="off">
+  <p class="hint">
+    Create one at <code>GitHub &rarr; Settings &rarr; Developer settings &rarr; Fine-grained
+    tokens</code> &mdash; repository <code>mazare101/mc-server-page</code>, permission
+    <code>Actions: Read and write</code>. It is only stored in this browser.
+  </p>
 </main>
 <script>
-const LS = { owner: "mcPage.owner", repo: "mcPage.repo", token: "mcPage.token" };
+const OWNER = "mazare101";
+const REPO = "mc-server-page";
+const TOKEN_KEY = "mcPage.token";
+
 const startBtn = document.getElementById("start");
 const statusEl = document.getElementById("status");
+const tokenInput = document.getElementById("token");
 
-function load() {
-  document.getElementById("owner").value = localStorage.getItem(LS.owner) || "";
-  document.getElementById("repo").value = localStorage.getItem(LS.repo) || "";
-  document.getElementById("token").value = localStorage.getItem(LS.token) || "";
-  document.getElementById("remember").checked = !!localStorage.getItem(LS.token);
-  syncStart();
-}
-
-function syncStart() {
-  const owner = document.getElementById("owner").value.trim();
-  const repo = document.getElementById("repo").value.trim();
-  const token = document.getElementById("token").value.trim();
-  startBtn.disabled = !(owner && repo && token);
-}
-
-document.querySelectorAll("#owner, #repo, #token").forEach(el =>
-  el.addEventListener("input", syncStart));
-
-document.getElementById("save").addEventListener("click", () => {
-  const token = document.getElementById("token").value.trim();
-  if (document.getElementById("remember").checked) {
-    localStorage.setItem(LS.owner, document.getElementById("owner").value.trim());
-    localStorage.setItem(LS.repo, document.getElementById("repo").value.trim());
-    localStorage.setItem(LS.token, token);
-  } else {
-    ["owner", "repo", "token"].forEach(k => localStorage.removeItem(LS[k]));
-  }
-  setStatus("Settings saved.", "ok");
+tokenInput.value = localStorage.getItem(TOKEN_KEY) || "";
+tokenInput.addEventListener("input", () => {
+  if (tokenInput.value.trim()) localStorage.setItem(TOKEN_KEY, tokenInput.value.trim());
+  else localStorage.removeItem(TOKEN_KEY);
 });
 
 function setStatus(msg, cls) {
@@ -104,8 +72,8 @@ function setStatus(msg, cls) {
   statusEl.className = cls || "";
 }
 
-async function dispatch(owner, repo, token) {
-  const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/dispatches`, {
+async function dispatch(token) {
+  const r = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/dispatches`, {
     method: "POST",
     headers: {
       "Accept": "application/vnd.github+json",
@@ -121,8 +89,8 @@ async function dispatch(owner, repo, token) {
   }
 }
 
-async function pollRun(owner, repo, token) {
-  const url = `https://api.github.com/repos/${owner}/${repo}/actions/runs?event=repository_dispatch&per_page=1`;
+async function pollRun(token) {
+  const url = `https://api.github.com/repos/${OWNER}/${REPO}/actions/runs?event=repository_dispatch&per_page=1`;
   for (let i = 0; i < 40; i++) {
     const r = await fetch(url, {
       headers: {
@@ -146,17 +114,19 @@ async function pollRun(owner, repo, token) {
 }
 
 startBtn.addEventListener("click", async () => {
-  const owner = document.getElementById("owner").value.trim();
-  const repo = document.getElementById("repo").value.trim();
-  const token = document.getElementById("token").value.trim();
-  if (!owner || !repo || !token) return;
+  const token = tokenInput.value.trim();
+  if (!token) {
+    setStatus("Missing token. Paste your fine-grained GitHub token above, then press Start again.", "err");
+    tokenInput.focus();
+    return;
+  }
 
   startBtn.disabled = true;
   setStatus("Triggering the server start...");
   try {
-    await dispatch(owner, repo, token);
+    await dispatch(token);
     setStatus("Request accepted. Waiting for your machine to report back...");
-    const result = await pollRun(owner, repo, token);
+    const result = await pollRun(token);
     setStatus(result.msg, result.ok ? "ok" : "err");
   } catch (e) {
     setStatus(e.message, "err");
@@ -164,8 +134,6 @@ startBtn.addEventListener("click", async () => {
     startBtn.disabled = false;
   }
 });
-
-load();
 </script>
 </body>
 </html>
